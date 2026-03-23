@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@notes-app/core": ["packages/core/src"],
+      "@notes-app/core/*": ["packages/core/src/*"],
+      "@notes-app/plugins": ["packages/plugins/src"],
+      "@notes-app/plugins/*": ["packages/plugins/src/*"],
+      "@notes-app/sync": ["packages/sync/src"],
+      "@notes-app/sync/*": ["packages/sync/src/*"],
+      "@notes-app/shared": ["packages/shared/src"],
+      "@notes-app/shared/*": ["packages/shared/src/*"],
+      "@notes-app/ui": ["packages/ui/src"],
+      "@notes-app/ui/*": ["packages/ui/src/*"]
+    },
+    "types": ["node"]
+  },
+  "exclude": ["node_modules", "dist", ".turbo", "**/vite.config.ts", "**/*.config.ts", "apps"]
+}
