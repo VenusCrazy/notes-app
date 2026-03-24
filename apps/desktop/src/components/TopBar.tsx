@@ -12,6 +12,7 @@ type MenuItem = {
 interface TopBarProps {
   onOpenCommandPalette: () => void;
   onToggleTheme: () => void;
+  onToggleSidebar: () => void;
   resolvedTheme: 'light' | 'dark';
   onNavigateSettings: () => void;
   onCreateNote: () => void;
@@ -20,11 +21,14 @@ interface TopBarProps {
   onGoForward: () => void;
   canGoBack: boolean;
   canGoForward: boolean;
+  sidebarVisible: boolean;
+  onCreateStickyNote: () => void;
 }
 
 export function TopBar({
   onOpenCommandPalette,
   onToggleTheme,
+  onToggleSidebar,
   resolvedTheme,
   onNavigateSettings,
   onCreateNote,
@@ -33,6 +37,8 @@ export function TopBar({
   onGoForward,
   canGoBack,
   canGoForward,
+  sidebarVisible,
+  onCreateStickyNote,
 }: TopBarProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -106,6 +112,14 @@ export function TopBar({
     <nav className="topbar" ref={menuRef}>
       <div className="topbar-section topbar-left">
         <button
+          className={`topbar-icon-btn ${sidebarVisible ? 'sidebar-active' : ''}`}
+          onClick={onToggleSidebar}
+          title="Toggle Sidebar"
+        >
+          <Icons.PanelLeft style={{ width: 16, height: 16 }} />
+        </button>
+        <div className="topbar-divider" />
+        <button
           className="topbar-icon-btn"
           onClick={onGoBack}
           disabled={!canGoBack}
@@ -126,9 +140,10 @@ export function TopBar({
           <Icons.Home style={{ width: 16, height: 16 }} />
         </button>
         <div className="topbar-divider" />
-        <div className="topbar-logo" onClick={onNavigateSettings} title="Notes App">
-          <Icons.FileText style={{ width: 16, height: 16 }} />
-        </div>
+        <button className="topbar-icon-btn sticky-note-btn" onClick={onCreateStickyNote} title="New Sticky Note">
+          <Icons.StickyNote style={{ width: 18, height: 18 }} />
+        </button>
+        <div className="topbar-divider" />
 
         {menus.map((menu) => (
           <div key={menu.label} className="topbar-menu-wrapper">
@@ -171,9 +186,14 @@ export function TopBar({
 
       <div className="topbar-section topbar-center">
         <button className="topbar-search" onClick={onOpenCommandPalette}>
-          <Icons.Search style={{ width: 14, height: 14 }} />
-          <span className="topbar-search-text">Search or type a command...</span>
-          <kbd className="topbar-search-kbd">⌘K</kbd>
+          <span className="topbar-search-icon">
+            <Icons.Search style={{ width: 16, height: 16 }} />
+          </span>
+          <span className="topbar-search-text">Search notes & commands</span>
+          <kbd className="topbar-search-kbd">
+            <span className="kbd-key">⌘</span>
+            <span className="kbd-key">K</span>
+          </kbd>
         </button>
       </div>
 

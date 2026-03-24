@@ -4,3 +4,5 @@ export * from './CommandPalette';
 export * from './NoteEditor';
 export * from './RightPanel';
 export * from './useTheme';
+export * from './useSlashMenu';
+export * from './SlashMenu';

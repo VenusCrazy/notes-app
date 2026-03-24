@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useNotesStore, FileEntry } from '../store/notesStore';
+import { useStickyNotesStore } from '../store/stickyNotesStore';
 import { useTheme } from '@notes-app/ui';
 import { CommandPalette, Icons } from '@notes-app/ui';
 import { SidebarCalendar } from './SidebarCalendar';
 import { TopBar } from './TopBar';
+import { StickyNotesManager } from './StickyNotesManager';
 
 interface FolderState {
   [key: string]: boolean;
@@ -13,6 +15,7 @@ interface FolderState {
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const createStickyNote = useStickyNotesStore((state) => state.createNote);
   const notes = useNotesStore((state) => state.notes);
   const vaultInitialized = useNotesStore((state) => state.vaultInitialized);
   const fileTree = useNotesStore((state) => state.fileTree);
@@ -201,6 +204,7 @@ export function Layout() {
       <TopBar
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         onToggleTheme={toggleTheme}
+        onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
         resolvedTheme={resolvedTheme}
         onNavigateSettings={() => navigate('/settings')}
         onCreateNote={handleCreateNote}
@@ -209,6 +213,8 @@ export function Layout() {
         onGoForward={handleGoForward}
         canGoBack={historyIndex > 0}
         canGoForward={historyIndex < history.length - 1}
+        sidebarVisible={!sidebarCollapsed}
+        onCreateStickyNote={createStickyNote}
       />
 
       <div className="main-layout">
@@ -270,6 +276,8 @@ export function Layout() {
         items={commandItems}
         placeholder="Search or run command..."
       />
+
+      <StickyNotesManager />
     </div>
   );
 }
@@ -309,67 +317,54 @@ function Sidebar({
 }: SidebarProps) {
   const noteByPath = new Map(notes.map((n) => [n.path, n]));
 
-  if (collapsed) {
-    return (
-      <aside className="sidebar collapsed">
-        <div className="sidebar-footer">
-          <button className="btn btn-ghost btn-icon" onClick={onCreateNote} title="New Note">
-            <Icons.Plus />
-          </button>
-          <button className="btn btn-ghost btn-icon" onClick={onSelectVault} title="Open Vault">
-            <Icons.FolderOpen />
-          </button>
-        </div>
-      </aside>
-    );
-  }
-
   return (
-    <aside className="sidebar" style={{ width }}>
-      <div className="sidebar-header">
-        <span className="sidebar-title">Explorer</span>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={onCreateNote} title="New Note">
-            <Icons.Plus />
-          </button>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={onCreateFolder} title="New Folder">
-            <Icons.Folder />
-          </button>
-        </div>
-      </div>
-
-      <div className="sidebar-content">
-        {!vaultInitialized ? (
-          <div style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-3)' }}>
-              No vault selected
-            </p>
-            <button className="btn btn-primary btn-sm" onClick={onSelectVault}>
-              <Icons.FolderOpen />
-              Open Vault
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} style={{ width }}>
+      <div className="sidebar-inner">
+        <div className="sidebar-header">
+          <span className="sidebar-title">Explorer</span>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={onCreateNote} title="New Note">
+              <Icons.Plus />
+            </button>
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={onCreateFolder} title="New Folder">
+              <Icons.Folder />
             </button>
           </div>
-        ) : (
-          <FileExplorer
-            items={fileTree}
-            noteByPath={noteByPath}
-            expandedFolders={expandedFolders}
-            onToggleFolder={onToggleFolder}
-            onContextMenu={onContextMenu}
-            currentNoteId={currentNoteId}
-            onSelectNote={onSelectNote}
-          />
-        )}
-      </div>
+        </div>
 
-      <SidebarCalendar collapsed={collapsed} />
+        <div className="sidebar-content">
+          {!vaultInitialized ? (
+            <div className="vault-empty-state">
+              <div className="vault-empty-icon">
+                <Icons.FolderOpen />
+              </div>
+              <p className="vault-empty-text">No vault selected</p>
+              <button className="btn btn-primary vault-open-btn" onClick={onSelectVault}>
+                Open Vault
+              </button>
+            </div>
+          ) : (
+            <FileExplorer
+              items={fileTree}
+              noteByPath={noteByPath}
+              expandedFolders={expandedFolders}
+              onToggleFolder={onToggleFolder}
+              onContextMenu={onContextMenu}
+              currentNoteId={currentNoteId}
+              onSelectNote={onSelectNote}
+            />
+          )}
+        </div>
 
-      <div className="sidebar-footer">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
-          <Icons.Folder style={{ width: '12px', height: '12px', color: 'var(--color-text-tertiary)' }} />
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>
-            {notes.length} notes
-          </span>
+        <SidebarCalendar collapsed={collapsed} />
+
+        <div className="sidebar-footer">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+            <Icons.Folder style={{ width: '12px', height: '12px', color: 'var(--color-text-tertiary)' }} />
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>
+              {notes.length} notes
+            </span>
+          </div>
         </div>
       </div>
 
