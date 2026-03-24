@@ -17,6 +17,7 @@ export function Layout() {
   const location = useLocation();
   const createStickyNote = useStickyNotesStore((state) => state.createNote);
   const notes = useNotesStore((state) => state.notes);
+  console.log('createStickyNote:', createStickyNote);
   const vaultInitialized = useNotesStore((state) => state.vaultInitialized);
   const fileTree = useNotesStore((state) => state.fileTree);
   const createNote = useNotesStore((state) => state.createNote);
@@ -197,6 +198,13 @@ export function Layout() {
       category: 'Navigation',
       action: () => navigate('/settings'),
     },
+    {
+      id: 'go-to-graph',
+      title: 'Go to Graph',
+      shortcut: ['⌘', 'G'],
+      category: 'Navigation',
+      action: () => navigate('/graph'),
+    },
   ];
 
   return (
@@ -207,6 +215,7 @@ export function Layout() {
         onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
         resolvedTheme={resolvedTheme}
         onNavigateSettings={() => navigate('/settings')}
+        onNavigateGraph={() => navigate('/graph')}
         onCreateNote={handleCreateNote}
         onNavigateHome={handleNavigateHome}
         onGoBack={handleGoBack}
