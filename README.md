@@ -1,3 +1,8 @@
+---
+title: "README"
+created: 2026-03-23T05:00:00.213839989+00:00
+---
+
 # Notes App - Cross-platform Note-Taking Application
 
 An Obsidian-like, extensible note-taking application built with Tauri (desktop) and React.

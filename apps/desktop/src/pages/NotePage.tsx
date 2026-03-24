@@ -2,11 +2,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useNotesStore } from '../store/notesStore';
 import { NoteEditor } from '@notes-app/ui';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 export function NotePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { notes, updateNote, deleteNote } = useNotesStore();
+  const { notes, updateNote, deleteNote, vaultPath } = useNotesStore();
   const note = notes.find((n) => n.id === id);
 
   const [title, setTitle] = useState('');
@@ -52,6 +53,24 @@ export function NotePage() {
     }
   }, [note, deleteNote, navigate]);
 
+  const handleDropImage = useCallback(async (file: File): Promise<string | null> => {
+    if (!vaultPath) return null;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const imagePath = await invoke<string>('copy_image_to_vault', {
+        vaultPath,
+        fileName: file.name,
+        data: Array.from(uint8Array),
+      });
+      return imagePath;
+    } catch (error) {
+      console.error('Failed to copy image:', error);
+      return null;
+    }
+  }, [vaultPath]);
+
   if (!note) {
     return (
       <div className="empty-state" style={{ height: '100%' }}>
@@ -74,6 +93,7 @@ export function NotePage() {
       onContentChange={setContent}
       onSave={handleSave}
       onDelete={handleDelete}
+      onDropImage={handleDropImage}
       lastSaved={lastSaved}
     />
   );

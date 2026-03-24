@@ -59,52 +59,54 @@ export function HomePage() {
   }
 
   return (
-    <div style={{ padding: 'var(--space-8)', maxWidth: '900px', margin: '0 auto' }}>
-      <div style={{ marginBottom: 'var(--space-8)' }}>
-        <h1 style={{ fontSize: 'var(--text-3xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>
-          All Notes
-        </h1>
-        <p style={{ color: 'var(--color-text-secondary)' }}>
-          {notes.length} note{notes.length !== 1 ? 's' : ''} in your vault
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
-        <div className="search-bar" style={{ flex: 1, maxWidth: '400px' }}>
-          <Icons.Search className="search-bar-icon" />
-          <input
-            type="text"
-            className="search-bar-input"
-            placeholder="Search notes..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ paddingLeft: 'var(--space-8)' }}
-          />
+    <div className="home-container">
+      <div className="home-content">
+        <div style={{ marginBottom: 'var(--space-8)' }}>
+          <h1 style={{ fontSize: 'var(--text-3xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>
+            All Notes
+          </h1>
+          <p style={{ color: 'var(--color-text-secondary)' }}>
+            {notes.length} note{notes.length !== 1 ? 's' : ''} in your vault
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={handleCreateNote}>
-          <Icons.Plus />
-          New Note
-        </button>
-      </div>
 
-      {filteredNotes.length === 0 ? (
-        <EmptyState onCreateNote={handleCreateNote} hasNotes={notes.length > 0} />
-      ) : (
-        <div style={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-          {filteredNotes.map((note) => (
-            <NoteCard 
-              key={note.id} 
-              note={note} 
-              onClick={() => navigate(`/note/${note.id}`)}
-              onDelete={() => {
-                if (confirm('Are you sure you want to delete this note?')) {
-                  useNotesStore.getState().deleteNote(note.path);
-                }
-              }}
+        <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
+          <div className="search-bar" style={{ flex: 1, maxWidth: '400px' }}>
+            <Icons.Search className="search-bar-icon" />
+            <input
+              type="text"
+              className="search-bar-input"
+              placeholder="Search notes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ paddingLeft: 'var(--space-8)' }}
             />
-          ))}
+          </div>
+          <button className="btn btn-primary" onClick={handleCreateNote}>
+            <Icons.Plus />
+            New Note
+          </button>
         </div>
-      )}
+
+        {filteredNotes.length === 0 ? (
+          <EmptyState onCreateNote={handleCreateNote} hasNotes={notes.length > 0} />
+        ) : (
+          <div className="notes-grid">
+            {filteredNotes.map((note) => (
+              <NoteCard 
+                key={note.id} 
+                note={note} 
+                onClick={() => navigate(`/note/${note.id}`)}
+                onDelete={() => {
+                  if (confirm('Are you sure you want to delete this note?')) {
+                    useNotesStore.getState().deleteNote(note.path);
+                  }
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -209,7 +211,7 @@ interface EmptyStateProps {
 
 function EmptyState({ onCreateNote, hasNotes }: EmptyStateProps) {
   return (
-    <div className="empty-state">
+    <div className="home-empty-state">
       <Icons.FileText className="empty-state-icon" style={{ width: '64px', height: '64px' }} />
       <h2 className="empty-state-title">
         {hasNotes ? 'No matching notes' : 'Welcome to Notes'}

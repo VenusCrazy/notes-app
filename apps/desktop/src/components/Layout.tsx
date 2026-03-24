@@ -4,6 +4,7 @@ import { useNotesStore, FileEntry } from '../store/notesStore';
 import { useTheme } from '@notes-app/ui';
 import { CommandPalette, Icons } from '@notes-app/ui';
 import { SidebarCalendar } from './SidebarCalendar';
+import { TopBar } from './TopBar';
 
 interface FolderState {
   [key: string]: boolean;
@@ -205,12 +206,12 @@ export function Layout() {
         resolvedTheme={resolvedTheme}
         onNavigateSettings={() => navigate('/settings')}
         onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-        sidebarCollapsed={sidebarCollapsed}
         canGoBack={historyIndex > 0}
         canGoForward={historyIndex < history.length - 1}
         onGoBack={handleGoBack}
         onGoForward={handleGoForward}
         onGoHome={handleGoHome}
+        onCreateNote={handleCreateNote}
       />
 
       <Sidebar
@@ -274,99 +275,6 @@ export function Layout() {
         placeholder="Search or run command..."
       />
     </div>
-  );
-}
-
-interface TopBarProps {
-  onOpenCommandPalette: () => void;
-  onToggleTheme: () => void;
-  resolvedTheme: 'light' | 'dark';
-  onNavigateSettings: () => void;
-}
-
-interface TopBarProps {
-  onOpenCommandPalette: () => void;
-  onToggleTheme: () => void;
-  resolvedTheme: 'light' | 'dark';
-  onNavigateSettings: () => void;
-  onToggleSidebar: () => void;
-  sidebarCollapsed: boolean;
-  canGoBack: boolean;
-  canGoForward: boolean;
-  onGoBack: () => void;
-  onGoForward: () => void;
-  onGoHome: () => void;
-}
-
-function TopBar({ onOpenCommandPalette, onToggleTheme, resolvedTheme, onNavigateSettings, onToggleSidebar, sidebarCollapsed, canGoBack, canGoForward, onGoBack, onGoForward, onGoHome }: TopBarProps) {
-  return (
-    <header className="topbar">
-      <div className="topbar-left">
-        <button
-          className="sidebar-toggle-btn"
-          onClick={onToggleSidebar}
-          title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-        >
-          <Icons.PanelLeft className={`sidebar-toggle-icon ${sidebarCollapsed ? 'collapsed' : ''}`} />
-        </button>
-
-        <div className="nav-buttons">
-          <button
-            className="nav-btn"
-            onClick={onGoBack}
-            disabled={!canGoBack}
-            title="Go back"
-          >
-            <Icons.ArrowLeft />
-          </button>
-          <button
-            className="nav-btn"
-            onClick={onGoForward}
-            disabled={!canGoForward}
-            title="Go forward"
-          >
-            <Icons.ArrowRight />
-          </button>
-          <button
-            className="nav-btn"
-            onClick={onGoHome}
-            title="Go home"
-          >
-            <Icons.Home />
-          </button>
-        </div>
-      </div>
-
-      <div className="topbar-center">
-        <button className="search-bar" onClick={onOpenCommandPalette}>
-          <Icons.Search className="search-bar-icon" />
-          <input
-            type="text"
-            className="search-bar-input"
-            placeholder="Search or run command..."
-            readOnly
-          />
-          <span className="search-bar-shortcut">⌘K</span>
-        </button>
-      </div>
-
-      <div className="topbar-right">
-        <button
-          className="btn btn-ghost btn-icon"
-          onClick={onToggleTheme}
-          title={`Switch to ${resolvedTheme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {resolvedTheme === 'light' ? <Icons.Moon /> : <Icons.Sun />}
-        </button>
-        <button
-          className="btn btn-ghost btn-icon"
-          onClick={onNavigateSettings}
-          title="Settings"
-        >
-          <Icons.Settings />
-        </button>
-      </div>
-    </header>
   );
 }
 

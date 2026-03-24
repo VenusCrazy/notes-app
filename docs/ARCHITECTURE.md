@@ -1,3 +1,8 @@
+---
+title: "ARCHITECTURE"
+created: 2026-03-23T05:05:41.101148660+00:00
+---
+
 # Notes App - Cross-platform Note-Taking Application
 
 An Obsidian-like, extensible note-taking application built with Tauri (desktop) and React.

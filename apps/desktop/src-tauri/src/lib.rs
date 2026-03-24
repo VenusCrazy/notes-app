@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use tauri::Manager;
 use walkdir::WalkDir;
@@ -48,12 +49,11 @@ fn get_vault_config_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, Strin
 
 fn ensure_vault_config(app_handle: &tauri::AppHandle) -> Result<VaultConfig, String> {
     let config_path = get_vault_config_path(app_handle)?;
-    
+
     if config_path.exists() {
         let content = fs::read_to_string(&config_path)
             .map_err(|e| format!("Failed to read vault config: {}", e))?;
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse vault config: {}", e))
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse vault config: {}", e))
     } else {
         Ok(VaultConfig {
             path: String::new(),
@@ -65,23 +65,28 @@ fn ensure_vault_config(app_handle: &tauri::AppHandle) -> Result<VaultConfig, Str
 fn save_vault_config(app_handle: &tauri::AppHandle, config: &VaultConfig) -> Result<(), String> {
     let config_path = get_vault_config_path(app_handle)?;
     let app_dir = config_path.parent().ok_or("Invalid config path")?;
-    
+
     if !app_dir.exists() {
         fs::create_dir_all(app_dir).map_err(|e| format!("Failed to create app dir: {}", e))?;
     }
-    
+
     let content = serde_json::to_string_pretty(config)
         .map_err(|e| format!("Failed to serialize vault config: {}", e))?;
-    
-    fs::write(&config_path, content)
-        .map_err(|e| format!("Failed to write vault config: {}", e))
+
+    fs::write(&config_path, content).map_err(|e| format!("Failed to write vault config: {}", e))
 }
 
 fn slugify(title: &str) -> String {
     title
         .to_lowercase()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .split_whitespace()
         .collect::<Vec<_>>()
@@ -92,17 +97,17 @@ fn extract_frontmatter(content: &str) -> (Option<String>, String, serde_json::Va
     let mut metadata = serde_json::json!({});
     let mut title: Option<String> = None;
     let mut body = content.to_string();
-    
+
     if content.starts_with("---") {
         if let Some(end_idx) = content[3..].find("---") {
             let frontmatter = &content[3..end_idx + 3];
             body = content[end_idx + 6..].trim_start().to_string();
-            
+
             for line in frontmatter.lines().skip(1) {
                 if let Some(colon_idx) = line.find(':') {
                     let key = line[..colon_idx].trim().to_string();
                     let value = line[colon_idx + 1..].trim();
-                    
+
                     if key == "title" {
                         title = Some(value.trim_matches('"').trim_matches('\'').to_string());
                     } else {
@@ -112,24 +117,25 @@ fn extract_frontmatter(content: &str) -> (Option<String>, String, serde_json::Va
             }
         }
     }
-    
+
     (title, body, metadata)
 }
 
 fn read_note_from_file(path: &Path) -> Result<Note, String> {
-    let content = fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
-    
+    let content = fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))?;
+
     let (title, body, metadata) = extract_frontmatter(&content);
-    
-    let file_stem = path.file_stem()
+
+    let file_stem = path
+        .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("untitled");
-    
-    let file_name = path.file_name()
+
+    let file_name = path
+        .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("untitled.md");
-    
+
     let created_at = fs::metadata(path)
         .and_then(|m| m.created())
         .ok()
@@ -138,7 +144,7 @@ fn read_note_from_file(path: &Path) -> Result<Note, String> {
             datetime.to_rfc3339()
         })
         .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
-    
+
     let modified_at = fs::metadata(path)
         .and_then(|m| m.modified())
         .ok()
@@ -147,11 +153,11 @@ fn read_note_from_file(path: &Path) -> Result<Note, String> {
             datetime.to_rfc3339()
         })
         .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
-    
+
     let title = title.unwrap_or_else(|| file_stem.replace('-', " ").replace('_', " "));
-    
+
     let relative_path = path.to_string_lossy().to_string();
-    
+
     Ok(Note {
         id: slugify(&title) + "-" + &chrono::Utc::now().timestamp_millis().to_string(),
         title,
@@ -165,9 +171,15 @@ fn read_note_from_file(path: &Path) -> Result<Note, String> {
 }
 
 fn is_note_file(path: &Path) -> bool {
-    path.is_file() && 
-    path.extension().map(|e| e == "md" || e == "markdown").unwrap_or(false) &&
-    !path.file_name().map(|n| n.to_string_lossy().starts_with('.')).unwrap_or(false)
+    path.is_file()
+        && path
+            .extension()
+            .map(|e| e == "md" || e == "markdown")
+            .unwrap_or(false)
+        && !path
+            .file_name()
+            .map(|n| n.to_string_lossy().starts_with('.'))
+            .unwrap_or(false)
 }
 
 #[tauri::command]
@@ -178,31 +190,32 @@ fn get_app_version() -> String {
 #[tauri::command]
 fn get_vault_state(app_handle: tauri::AppHandle) -> Result<VaultState, String> {
     let config = ensure_vault_config(&app_handle)?;
+    let is_initialized = !config.path.is_empty();
     Ok(VaultState {
         path: config.path,
-        initialized: !config.path.is_empty(),
+        initialized: is_initialized,
     })
 }
 
 #[tauri::command]
 fn set_vault_path(app_handle: tauri::AppHandle, path: String) -> Result<(), String> {
     let vault_path = Path::new(&path);
-    
+
     if !vault_path.exists() {
         fs::create_dir_all(vault_path)
             .map_err(|e| format!("Failed to create vault directory: {}", e))?;
     }
-    
+
     if !vault_path.is_dir() {
         return Err("Selected path is not a directory".to_string());
     }
-    
+
     let mut config = ensure_vault_config(&app_handle)?;
     config.path = path.clone();
     config.last_opened = Some(chrono::Utc::now().to_rfc3339());
-    
+
     save_vault_config(&app_handle, &config)?;
-    
+
     log::info!("Vault path set to: {}", path);
     Ok(())
 }
@@ -216,17 +229,17 @@ fn get_vault_path(app_handle: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 fn list_directory(path: String, recursive: bool) -> Result<Vec<FileEntry>, String> {
     let dir_path = Path::new(&path);
-    
+
     if !dir_path.exists() {
         return Err("Directory does not exist".to_string());
     }
-    
+
     if !dir_path.is_dir() {
         return Err("Path is not a directory".to_string());
     }
-    
+
     let mut entries = Vec::new();
-    
+
     if recursive {
         for entry in WalkDir::new(dir_path)
             .max_depth(10)
@@ -237,17 +250,19 @@ fn list_directory(path: String, recursive: bool) -> Result<Vec<FileEntry>, Strin
             if entry_path == dir_path {
                 continue;
             }
-            
-            let relative_path = entry_path.strip_prefix(dir_path)
+
+            let relative_path = entry_path
+                .strip_prefix(dir_path)
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_default();
-            
+
             if relative_path.starts_with('.') || relative_path.contains("/.") {
                 continue;
             }
-            
+
             entries.push(FileEntry {
-                name: entry_path.file_name()
+                name: entry_path
+                    .file_name()
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_default(),
                 path: entry_path.to_string_lossy().to_string(),
@@ -256,19 +271,20 @@ fn list_directory(path: String, recursive: bool) -> Result<Vec<FileEntry>, Strin
             });
         }
     } else {
-        let read_dir = fs::read_dir(dir_path)
-            .map_err(|e| format!("Failed to read directory: {}", e))?;
-        
+        let read_dir =
+            fs::read_dir(dir_path).map_err(|e| format!("Failed to read directory: {}", e))?;
+
         for entry in read_dir.filter_map(|e| e.ok()) {
             let entry_path = entry.path();
-            let name = entry_path.file_name()
+            let name = entry_path
+                .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
-            
+
             if name.starts_with('.') {
                 continue;
             }
-            
+
             entries.push(FileEntry {
                 name,
                 path: entry_path.to_string_lossy().to_string(),
@@ -277,49 +293,46 @@ fn list_directory(path: String, recursive: bool) -> Result<Vec<FileEntry>, Strin
             });
         }
     }
-    
-    entries.sort_by(|a, b| {
-        match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
+
+    entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
-    
+
     Ok(entries)
 }
 
 #[tauri::command]
 fn create_note(vault_path: String, title: String) -> Result<Note, String> {
     let vault = Path::new(&vault_path);
-    
+
     if !vault.exists() {
         return Err("Vault does not exist".to_string());
     }
-    
+
     let slug = slugify(&title);
     let mut filename = format!("{}.md", slug);
     let mut file_path = vault.join(&filename);
     let mut counter = 1;
-    
+
     while file_path.exists() {
         filename = format!("{}-{}.md", slug, counter);
         file_path = vault.join(&filename);
         counter += 1;
     }
-    
+
     let now = chrono::Utc::now();
     let content = format!(
         "---\ntitle: \"{}\"\ncreated: {}\n---\n\n",
         title,
         now.to_rfc3339()
     );
-    
-    fs::write(&file_path, &content)
-        .map_err(|e| format!("Failed to create note: {}", e))?;
-    
+
+    fs::write(&file_path, &content).map_err(|e| format!("Failed to create note: {}", e))?;
+
     log::info!("Created note: {:?}", file_path);
-    
+
     Ok(Note {
         id: slug.clone() + "-" + &now.timestamp_millis().to_string(),
         title,
@@ -341,36 +354,32 @@ fn read_note(path: String) -> Result<Note, String> {
 #[tauri::command]
 fn save_note(path: String, title: String, content: String) -> Result<Note, String> {
     let note_path = Path::new(&path);
-    
+
     if !note_path.exists() {
         return Err("Note file does not exist".to_string());
     }
-    
-    let metadata = fs::metadata(note_path)
-        .map_err(|e| format!("Failed to get file metadata: {}", e))?;
-    
-    let created = metadata.created()
+
+    let metadata =
+        fs::metadata(note_path).map_err(|e| format!("Failed to get file metadata: {}", e))?;
+
+    let created = metadata
+        .created()
         .ok()
         .map(|t| {
             let datetime: chrono::DateTime<chrono::Utc> = t.into();
             datetime.to_rfc3339()
         })
         .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
-    
+
     let now = chrono::Utc::now();
-    let frontmatter = format!(
-        "---\ntitle: \"{}\"\ncreated: {}\n---\n\n",
-        title,
-        created
-    );
-    
+    let frontmatter = format!("---\ntitle: \"{}\"\ncreated: {}\n---\n\n", title, created);
+
     let file_content = format!("{}{}", frontmatter, content);
-    
-    fs::write(note_path, &file_content)
-        .map_err(|e| format!("Failed to save note: {}", e))?;
-    
+
+    fs::write(note_path, &file_content).map_err(|e| format!("Failed to save note: {}", e))?;
+
     log::info!("Saved note: {:?}", note_path);
-    
+
     Ok(Note {
         id: slugify(&title) + "-" + &now.timestamp_millis().to_string(),
         title,
@@ -386,14 +395,13 @@ fn save_note(path: String, title: String, content: String) -> Result<Note, Strin
 #[tauri::command]
 fn delete_note(path: String) -> Result<(), String> {
     let note_path = Path::new(&path);
-    
+
     if !note_path.exists() {
         return Err("Note file does not exist".to_string());
     }
-    
-    fs::remove_file(note_path)
-        .map_err(|e| format!("Failed to delete note: {}", e))?;
-    
+
+    fs::remove_file(note_path).map_err(|e| format!("Failed to delete note: {}", e))?;
+
     log::info!("Deleted note: {:?}", note_path);
     Ok(())
 }
@@ -401,48 +409,48 @@ fn delete_note(path: String) -> Result<(), String> {
 #[tauri::command]
 fn rename_note(old_path: String, new_title: String) -> Result<String, String> {
     let old_note_path = Path::new(&old_path);
-    
+
     if !old_note_path.exists() {
         return Err("Note file does not exist".to_string());
     }
-    
+
     let vault = old_note_path.parent().ok_or("Invalid path")?;
     let slug = slugify(&new_title);
     let new_filename = format!("{}.md", slug);
     let mut new_path = vault.join(&new_filename);
-    
+
     let mut counter = 1;
     while new_path.exists() && new_path != old_note_path {
         new_path = vault.join(format!("{}-{}.md", slug, counter));
         counter += 1;
     }
-    
-    fs::rename(old_note_path, &new_path)
-        .map_err(|e| format!("Failed to rename note: {}", e))?;
-    
-    let content = fs::read_to_string(&new_path)
-        .map_err(|e| format!("Failed to read note: {}", e))?;
-    
+
+    fs::rename(old_note_path, &new_path).map_err(|e| format!("Failed to rename note: {}", e))?;
+
+    let content =
+        fs::read_to_string(&new_path).map_err(|e| format!("Failed to read note: {}", e))?;
+
     let (old_title, body, metadata) = extract_frontmatter(&content);
-    let created = old_title.as_ref().map(|_| {
-        content.lines()
-            .find(|l| l.starts_with("created:"))
-            .map(|l| l.replace("created:", "").trim().to_string())
-            .unwrap_or_else(|| chrono::Utc::now().to_rfc3339())
-    }).unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
-    
+    let created = old_title
+        .as_ref()
+        .map(|_| {
+            content
+                .lines()
+                .find(|l| l.starts_with("created:"))
+                .map(|l| l.replace("created:", "").trim().to_string())
+                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339())
+        })
+        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+
     let new_content = format!(
         "---\ntitle: \"{}\"\ncreated: {}\n---\n\n{}",
-        new_title,
-        created,
-        body
+        new_title, created, body
     );
-    
-    fs::write(&new_path, &new_content)
-        .map_err(|e| format!("Failed to update note: {}", e))?;
-    
+
+    fs::write(&new_path, &new_content).map_err(|e| format!("Failed to update note: {}", e))?;
+
     log::info!("Renamed note from {:?} to {:?}", old_note_path, new_path);
-    
+
     Ok(new_path.to_string_lossy().to_string())
 }
 
@@ -450,34 +458,32 @@ fn rename_note(old_path: String, new_title: String) -> Result<String, String> {
 fn create_folder(vault_path: String, name: String) -> Result<String, String> {
     let vault = Path::new(&vault_path);
     let folder_path = vault.join(&name);
-    
+
     if folder_path.exists() {
         return Err("Folder already exists".to_string());
     }
-    
-    fs::create_dir_all(&folder_path)
-        .map_err(|e| format!("Failed to create folder: {}", e))?;
-    
+
+    fs::create_dir_all(&folder_path).map_err(|e| format!("Failed to create folder: {}", e))?;
+
     log::info!("Created folder: {:?}", folder_path);
-    
+
     Ok(folder_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 fn delete_folder(path: String) -> Result<(), String> {
     let folder_path = Path::new(&path);
-    
+
     if !folder_path.exists() {
         return Err("Folder does not exist".to_string());
     }
-    
+
     if !folder_path.is_dir() {
         return Err("Path is not a directory".to_string());
     }
-    
-    fs::remove_dir_all(folder_path)
-        .map_err(|e| format!("Failed to delete folder: {}", e))?;
-    
+
+    fs::remove_dir_all(folder_path).map_err(|e| format!("Failed to delete folder: {}", e))?;
+
     log::info!("Deleted folder: {:?}", folder_path);
     Ok(())
 }
@@ -485,48 +491,52 @@ fn delete_folder(path: String) -> Result<(), String> {
 #[tauri::command]
 fn rename_folder(old_path: String, new_name: String) -> Result<String, String> {
     let old_folder_path = Path::new(&old_path);
-    
+
     if !old_folder_path.exists() {
         return Err("Folder does not exist".to_string());
     }
-    
+
     let parent = old_folder_path.parent().ok_or("Invalid path")?;
     let new_path = parent.join(&new_name);
-    
+
     fs::rename(old_folder_path, &new_path)
         .map_err(|e| format!("Failed to rename folder: {}", e))?;
-    
-    log::info!("Renamed folder from {:?} to {:?}", old_folder_path, new_path);
-    
+
+    log::info!(
+        "Renamed folder from {:?} to {:?}",
+        old_folder_path,
+        new_path
+    );
+
     Ok(new_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 fn load_all_notes(vault_path: String) -> Result<Vec<Note>, String> {
     let vault = Path::new(&vault_path);
-    
+
     if !vault.exists() {
         return Ok(vec![]);
     }
-    
+
     let mut notes = Vec::new();
-    
+
     for entry in WalkDir::new(vault)
         .max_depth(10)
         .into_iter()
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        
+
         if !is_note_file(path) {
             continue;
         }
-        
+
         if let Ok(note) = read_note_from_file(path) {
             notes.push(note);
         }
     }
-    
+
     notes.sort_by(|a, b| {
         let a_time = chrono::DateTime::parse_from_rfc3339(&a.updated_at)
             .map(|dt| dt.timestamp())
@@ -536,7 +546,7 @@ fn load_all_notes(vault_path: String) -> Result<Vec<Note>, String> {
             .unwrap_or(0);
         b_time.cmp(&a_time)
     });
-    
+
     log::info!("Loaded {} notes from vault", notes.len());
     Ok(notes)
 }
@@ -544,33 +554,34 @@ fn load_all_notes(vault_path: String) -> Result<Vec<Note>, String> {
 #[tauri::command]
 fn search_notes(vault_path: String, query: String) -> Result<Vec<Note>, String> {
     let vault = Path::new(&vault_path);
-    
+
     if !vault.exists() || query.trim().is_empty() {
         return load_all_notes(vault_path);
     }
-    
+
     let query_lower = query.to_lowercase();
     let mut results = Vec::new();
-    
+
     for entry in WalkDir::new(vault)
         .max_depth(10)
         .into_iter()
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        
+
         if !is_note_file(path) {
             continue;
         }
-        
+
         if let Ok(note) = read_note_from_file(path) {
-            if note.title.to_lowercase().contains(&query_lower) ||
-               note.content.to_lowercase().contains(&query_lower) {
+            if note.title.to_lowercase().contains(&query_lower)
+                || note.content.to_lowercase().contains(&query_lower)
+            {
                 results.push(note);
             }
         }
     }
-    
+
     results.sort_by(|a, b| {
         let a_time = chrono::DateTime::parse_from_rfc3339(&a.updated_at)
             .map(|dt| dt.timestamp())
@@ -580,8 +591,65 @@ fn search_notes(vault_path: String, query: String) -> Result<Vec<Note>, String> 
             .unwrap_or(0);
         b_time.cmp(&a_time)
     });
-    
+
     Ok(results)
+}
+
+#[tauri::command]
+fn copy_image_to_vault(
+    vault_path: String,
+    file_name: String,
+    data: Vec<u8>,
+) -> Result<String, String> {
+    let vault = Path::new(&vault_path);
+
+    if !vault.exists() {
+        return Err("Vault does not exist".to_string());
+    }
+
+    let images_dir = vault.join("images");
+
+    if !images_dir.exists() {
+        fs::create_dir_all(&images_dir)
+            .map_err(|e| format!("Failed to create images directory: {}", e))?;
+    }
+
+    let safe_name = file_name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+
+    let mut file_path = images_dir.join(&safe_name);
+    let mut counter = 1;
+    let extension = Path::new(&safe_name)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("png");
+    let stem = Path::new(&safe_name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("image");
+
+    while file_path.exists() {
+        file_path = images_dir.join(format!("{}-{}.{}", stem, counter, extension));
+        counter += 1;
+    }
+
+    let mut file =
+        fs::File::create(&file_path).map_err(|e| format!("Failed to create image file: {}", e))?;
+
+    file.write_all(&data)
+        .map_err(|e| format!("Failed to write image data: {}", e))?;
+
+    log::info!("Copied image to: {:?}", file_path);
+
+    Ok(file_path.to_string_lossy().to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -612,6 +680,7 @@ pub fn run() {
             rename_folder,
             load_all_notes,
             search_notes,
+            copy_image_to_vault,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

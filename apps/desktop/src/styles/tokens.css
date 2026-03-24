@@ -59,7 +59,7 @@
   --sidebar-collapsed-width: 48px;
   --right-panel-width: 280px;
   --topbar-height: 48px;
-  --editor-max-width: 720px;
+  --editor-max-width: 100%;
 }
 
 /* Light Theme (Default) */
@@ -137,8 +137,8 @@
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -147,9 +147,13 @@
 
 ::-webkit-scrollbar-thumb {
   background-color: var(--color-scrollbar);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-scrollbar-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }

@@ -20,8 +20,9 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="settings-page">
-      <header className="settings-header">
+    <div className="settings-container">
+      <div className="settings-page">
+        <header className="settings-header">
         <h1 className="settings-title">Settings</h1>
         <p className="settings-description">
           Customize your notes app experience
@@ -236,6 +237,7 @@ export function SettingsPage() {
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 }

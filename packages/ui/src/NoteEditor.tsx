@@ -1,4 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Icons } from './Icons';
 
 type EditorMode = 'edit' | 'preview' | 'split';
@@ -10,6 +14,7 @@ interface NoteEditorProps {
   onContentChange: (content: string) => void;
   onSave: () => void;
   onDelete?: () => void;
+  onDropImage?: (file: File) => Promise<string | null>;
   lastSaved?: Date | null;
 }
 
@@ -20,13 +25,16 @@ export function NoteEditor({
   onContentChange,
   onSave,
   onDelete,
+  onDropImage,
   lastSaved,
 }: NoteEditorProps) {
-  const [mode, setMode] = useState<EditorMode>('edit');
+  const [mode, setMode] = useState<EditorMode>('split');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const saveHandlerRef = useRef<() => void>(() => {});
+  const dragCounterRef = useRef(0);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -61,6 +69,51 @@ export function NoteEditor({
     }
   };
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounterRef.current = 0;
+
+    if (!onDropImage) return;
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+
+    for (const file of imageFiles) {
+      const imagePath = await onDropImage(file);
+      if (imagePath) {
+        const imageMarkdown = `\n![${file.name}](${imagePath})\n`;
+        const cursorPos = contentRef.current?.selectionStart ?? content.length;
+        const newContent = content.slice(0, cursorPos) + imageMarkdown + content.slice(cursorPos);
+        onContentChange(newContent);
+      }
+    }
+  };
+
   return (
     <div className="editor-container">
       <div className="editor-wrapper">
@@ -73,7 +126,13 @@ export function NoteEditor({
           hasDelete={!!onDelete}
         />
 
-        <div className="editor" style={{ marginTop: 'var(--space-4)' }}>
+        <div 
+          className="editor" 
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
           <input
             ref={titleRef}
             type="text"
@@ -90,27 +149,65 @@ export function NoteEditor({
               className="editor-content"
               value={content}
               onChange={(e) => onContentChange(e.target.value)}
-              placeholder="Start writing..."
+              placeholder="Start writing... (drag & drop images here)"
               autoFocus
             />
           )}
 
           {mode === 'preview' && (
             <div className="markdown-preview">
-              <MarkdownPreview content={content} />
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
             </div>
           )}
 
           {mode === 'split' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)' }}>
-              <textarea
-                className="editor-content"
-                value={content}
-                onChange={(e) => onContentChange(e.target.value)}
-                placeholder="Start writing..."
-              />
-              <div className="markdown-preview" style={{ borderLeft: '1px solid var(--color-border)', paddingLeft: 'var(--space-6)' }}>
-                <MarkdownPreview content={content} />
+            <div className="split-view">
+              <div className="split-editor">
+                <textarea
+                  ref={contentRef}
+                  className="editor-content"
+                  value={content}
+                  onChange={(e) => onContentChange(e.target.value)}
+                  placeholder="Start writing... (drag & drop images here)"
+                />
+              </div>
+              <div className="split-divider" />
+              <div className="split-preview">
+                <div className="markdown-preview">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code({ className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        const inline = !match && !className;
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={oneDark}
+                            language={match[1]}
+                            PreTag="div"
+                          >
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {content}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isDragging && (
+            <div className="drop-overlay">
+              <div className="drop-overlay-content">
+                <Icons.Image />
+                <span>Drop images here</span>
               </div>
             </div>
           )}
@@ -191,11 +288,17 @@ function EditorFooter({ lastSaved, isSaving }: EditorFooterProps) {
     <div className="editor-footer">
       <div className="editor-footer-meta">
         {isSaving ? (
-          <span>Saving...</span>
+          <span className="save-indicator saving">
+            <span className="save-dot" />
+            Saving...
+          </span>
         ) : lastSaved ? (
-          <span>Saved {formatRelativeTime(lastSaved)}</span>
+          <span className="save-indicator saved">
+            <span className="save-dot" />
+            Saved {formatRelativeTime(lastSaved)}
+          </span>
         ) : (
-          <span>Not saved</span>
+          <span className="save-indicator">Not saved</span>
         )}
       </div>
       <div className="editor-footer-actions">
@@ -218,48 +321,4 @@ function formatRelativeTime(date: Date): string {
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   return date.toLocaleDateString();
-}
-
-interface MarkdownPreviewProps {
-  content: string;
-}
-
-function MarkdownPreview({ content }: MarkdownPreviewProps) {
-  const html = parseMarkdown(content);
-  return <div dangerouslySetInnerHTML={{ __html: html }} />;
-}
-
-function parseMarkdown(text: string): string {
-  if (!text) return '<p style="color: var(--color-text-tertiary)">Nothing to preview</p>';
-
-  let html = text;
-
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-  html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
-
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
-  html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
-
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-
-  html = html.replace(/^> (.*$)/gm, '<blockquote><p>$1</p></blockquote>');
-
-  html = html.replace(/^- (.*$)/gm, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-  html = html.replace(/\n\n+/g, '</p><p>');
-  html = html.replace(/^(?!<[huplo]|<li|<blockquote)(.*$)/gm, '<p>$1</p>');
-
-  html = html.replace(/<p><\/p>/g, '');
-  html = html.replace(/<p>(<[huplo])/g, '$1');
-  html = html.replace(/(<\/[huplo][^>]*>)<\/p>/g, '$1');
-  html = html.replace(/<p>(<pre>)/g, '$1');
-  html = html.replace(/(<\/pre>)<\/p>/g, '$1');
-
-  return html;
 }
