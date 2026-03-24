@@ -22,8 +22,6 @@ export function Layout() {
   const selectVault = useNotesStore((state) => state.selectVault);
   const { resolvedTheme, toggleTheme } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [historyIndex, setHistoryIndex] = useState(0);
-  const [history, setHistory] = useState<string[]>(['/']);
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<FolderState>({});
@@ -37,41 +35,6 @@ export function Layout() {
       loadDirectory(vaultPath);
     }
   }, [vaultInitialized, vaultPath, loadDirectory]);
-
-  useEffect(() => {
-    setHistory((prev) => {
-      const newHistory = prev.slice(0, historyIndex + 1);
-      if (newHistory[newHistory.length - 1] !== location.pathname) {
-        newHistory.push(location.pathname);
-        return newHistory;
-      }
-      return prev;
-    });
-    setHistoryIndex((prev) => Math.min(prev + 1, history.length));
-  }, [location.pathname]);
-
-  const handleGoBack = useCallback(() => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      navigate(history[newIndex]);
-    }
-  }, [historyIndex, history, navigate]);
-
-  const handleGoForward = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      navigate(history[newIndex]);
-    }
-  }, [historyIndex, history, navigate]);
-
-  const handleGoHome = useCallback(() => {
-    navigate('/');
-    const newHistory = [...history.slice(0, historyIndex + 1), '/'];
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [navigate, history, historyIndex]);
 
   const handleCreateNote = useCallback(async () => {
     const note = await createNote('Untitled');
@@ -205,38 +168,31 @@ export function Layout() {
         onToggleTheme={toggleTheme}
         resolvedTheme={resolvedTheme}
         onNavigateSettings={() => navigate('/settings')}
-        onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-        canGoBack={historyIndex > 0}
-        canGoForward={historyIndex < history.length - 1}
-        onGoBack={handleGoBack}
-        onGoForward={handleGoForward}
-        onGoHome={handleGoHome}
         onCreateNote={handleCreateNote}
       />
 
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        width={sidebarWidth}
-        onResizeStart={handleMouseDown}
-        fileTree={fileTree}
-        notes={notes}
-        expandedFolders={expandedFolders}
-        onToggleFolder={toggleFolder}
-        onCreateNote={handleCreateNote}
-        onCreateFolder={handleCreateFolder}
-        onContextMenu={handleContextMenu}
-        currentNoteId={location.pathname.includes('/note/') ? location.pathname.split('/note/')[1] : null}
-        onSelectNote={(id) => navigate(`/note/${id}`)}
-        onSelectVault={selectVault}
-        vaultInitialized={vaultInitialized}
-      />
+      <div className="main-layout">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          width={sidebarWidth}
+          onResizeStart={handleMouseDown}
+          fileTree={fileTree}
+          notes={notes}
+          expandedFolders={expandedFolders}
+          onToggleFolder={toggleFolder}
+          onCreateNote={handleCreateNote}
+          onCreateFolder={handleCreateFolder}
+          onContextMenu={handleContextMenu}
+          currentNoteId={location.pathname.includes('/note/') ? location.pathname.split('/note/')[1] : null}
+          onSelectNote={(id) => navigate(`/note/${id}`)}
+          onSelectVault={selectVault}
+          vaultInitialized={vaultInitialized}
+        />
 
-      <main 
-        className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}
-        style={{ marginLeft: sidebarCollapsed ? 0 : sidebarWidth }}
-      >
-        <Outlet />
-      </main>
+        <main className="main-content">
+          <Outlet />
+        </main>
+      </div>
 
       {contextMenu && (
         <ContextMenu
