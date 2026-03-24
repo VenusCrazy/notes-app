@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { Note } from '@notes-app/shared';
+import { Note, Backlink } from '@notes-app/shared';
 import { useAppStore } from './appStore';
+import { buildBacklinksMap } from '../utils/links';
 
 export interface FileEntry {
   name: string;
@@ -24,6 +25,7 @@ interface NotesState {
   isLoading: boolean;
   error: string | null;
   fileTree: FileEntry[];
+  backlinksMap: Map<string, Backlink[]>;
   initializeVault: () => Promise<void>;
   selectVault: () => Promise<void>;
   loadNotes: () => Promise<void>;
@@ -39,6 +41,8 @@ interface NotesState {
   deleteFolder: (path: string) => Promise<void>;
   renameFolder: (oldPath: string, newName: string) => Promise<string>;
   getNotesCount: () => number;
+  getBacklinks: (noteId: string) => Backlink[];
+  rebuildBacklinks: () => void;
 }
 
 export const useNotesStore = create<NotesState>((set, get) => ({
@@ -49,6 +53,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   isLoading: false,
   error: null,
   fileTree: [],
+  backlinksMap: new Map(),
 
   initializeVault: async () => {
     set({ isLoading: true, error: null });
@@ -99,7 +104,8 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const notes = await invoke<Note[]>('load_all_notes', { vaultPath });
-      set({ notes, isLoading: false });
+      const backlinksMap = buildBacklinksMap(notes);
+      set({ notes, isLoading: false, backlinksMap });
     } catch (error) {
       console.error('Failed to load notes:', error);
       set({ error: String(error), isLoading: false });
@@ -118,6 +124,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       set((state) => ({
         notes: [note, ...state.notes],
       }));
+      get().rebuildBacklinks();
       await get().loadDirectory(vaultPath);
       return note;
     } catch (error) {
@@ -128,7 +135,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   updateNote: async (id: string, updates: Partial<Note>) => {
-    const { notes } = get();
+    const { notes, rebuildBacklinks } = get();
     const note = notes.find((n) => n.id === id);
     if (!note) return;
 
@@ -150,6 +157,10 @@ export const useNotesStore = create<NotesState>((set, get) => ({
             ? { ...state.currentNote, ...updates, updatedAt: new Date() }
             : state.currentNote,
       }));
+
+      if (updates.content !== undefined) {
+        rebuildBacklinks();
+      }
     } catch (error) {
       console.error('Failed to update note:', error);
       set({ error: String(error) });
@@ -163,6 +174,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         notes: state.notes.filter((n) => n.path !== path),
         currentNote: state.currentNote?.path === path ? null : state.currentNote,
       }));
+      get().rebuildBacklinks();
       await get().loadDirectory(get().vaultPath);
     } catch (error) {
       console.error('Failed to delete note:', error);
@@ -186,6 +198,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
             : state.currentNote,
       }));
       
+      get().rebuildBacklinks();
       await get().loadDirectory(get().vaultPath);
       return newPath;
     } catch (error) {
@@ -271,4 +284,14 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   getNotesCount: () => get().notes.length,
+
+  getBacklinks: (noteId: string) => {
+    return get().backlinksMap.get(noteId) || [];
+  },
+
+  rebuildBacklinks: () => {
+    const { notes } = get();
+    const newBacklinksMap = buildBacklinksMap(notes);
+    set({ backlinksMap: newBacklinksMap });
+  },
 }));

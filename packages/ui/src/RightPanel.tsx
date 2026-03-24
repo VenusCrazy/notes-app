@@ -1,28 +1,78 @@
+import { Icons } from './Icons';
+
 interface BacklinksPanelProps {
   backlinks: {
-    id: string;
-    title: string;
+    noteId: string;
+    noteTitle: string;
+    notePath: string;
     context: string;
   }[];
+  onBacklinkClick: (noteId: string) => void;
+  isExpanded?: boolean;
+  onToggle?: () => void;
 }
 
-export function BacklinksPanel({ backlinks }: BacklinksPanelProps) {
-  return (
-    <div className="backlinks-panel">
-      <div className="backlinks-count">
-        {backlinks.length} backlink{backlinks.length !== 1 ? 's' : ''}
-      </div>
-      {backlinks.length === 0 ? (
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)' }}>
+export function BacklinksPanel({ 
+  backlinks, 
+  onBacklinkClick,
+  isExpanded = true,
+  onToggle,
+}: BacklinksPanelProps) {
+  if (backlinks.length === 0) {
+    return (
+      <div className="backlinks-panel">
+        <div className="backlinks-header">
+          <div className="backlinks-header-left">
+            <Icons.Link style={{ width: 14, height: 14 }} />
+            <span>Backlinks</span>
+            <span className="backlinks-count">{backlinks.length}</span>
+          </div>
+        </div>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)', padding: 'var(--space-2)' }}>
           No backlinks yet
         </p>
-      ) : (
-        backlinks.map((backlink) => (
-          <div key={backlink.id} className="backlink-item">
-            <div className="backlink-title">{backlink.title}</div>
-            <div className="backlink-context">{backlink.context}</div>
-          </div>
-        ))
+      </div>
+    );
+  }
+
+  return (
+    <div className="backlinks-panel">
+      <button className="backlinks-header" onClick={onToggle}>
+        <div className="backlinks-header-left">
+          <Icons.Link style={{ width: 14, height: 14 }} />
+          <span>Backlinks</span>
+          <span className="backlinks-count">{backlinks.length}</span>
+        </div>
+        {onToggle && (
+          <Icons.ChevronRight
+            style={{
+              width: 14,
+              height: 14,
+              transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+              transition: 'transform 150ms ease',
+            }}
+          />
+        )}
+      </button>
+
+      {isExpanded && (
+        <div className="backlinks-list">
+          {backlinks.map((backlink, index) => (
+            <button
+              key={`${backlink.noteId}-${index}`}
+              className="backlink-item"
+              onClick={() => onBacklinkClick(backlink.noteId)}
+            >
+              <div className="backlink-title">
+                <Icons.FileText style={{ width: 12, height: 12 }} />
+                <span>{backlink.noteTitle}</span>
+              </div>
+              {backlink.context && (
+                <div className="backlink-context">{backlink.context}</div>
+              )}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

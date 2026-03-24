@@ -19,6 +19,20 @@ export interface Vault {
   createdAt: Date;
 }
 
+export interface WikiLink {
+  raw: string;
+  title: string;
+  startIndex: number;
+  endIndex: number;
+}
+
+export interface Backlink {
+  noteId: string;
+  noteTitle: string;
+  notePath: string;
+  context: string;
+}
+
 export interface SearchResult {
   note: Note;
   score: number;

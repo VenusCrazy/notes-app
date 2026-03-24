@@ -1,19 +1,22 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useNotesStore } from '../store/notesStore';
-import { NoteEditor } from '@notes-app/ui';
+import { NoteEditor, BacklinksPanel } from '@notes-app/ui';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
 export function NotePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { notes, updateNote, deleteNote, vaultPath } = useNotesStore();
+  const { notes, updateNote, deleteNote, vaultPath, getBacklinks } = useNotesStore();
   const note = notes.find((n) => n.id === id);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [backlinksExpanded, setBacklinksExpanded] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const backlinks = id ? getBacklinks(id) : [];
 
   useEffect(() => {
     if (note) {
@@ -86,15 +89,27 @@ export function NotePage() {
   }
 
   return (
-    <NoteEditor
-      title={title}
-      content={content}
-      onTitleChange={setTitle}
-      onContentChange={setContent}
-      onSave={handleSave}
-      onDelete={handleDelete}
-      onDropImage={handleDropImage}
-      lastSaved={lastSaved}
-    />
+    <div className="note-page-layout">
+      <div className="note-page-content">
+        <NoteEditor
+          title={title}
+          content={content}
+          onTitleChange={setTitle}
+          onContentChange={setContent}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          onDropImage={handleDropImage}
+          lastSaved={lastSaved}
+        />
+      </div>
+      <div className="note-page-sidebar">
+        <BacklinksPanel
+          backlinks={backlinks}
+          onBacklinkClick={(noteId) => navigate(`/note/${noteId}`)}
+          isExpanded={backlinksExpanded}
+          onToggle={() => setBacklinksExpanded(!backlinksExpanded)}
+        />
+      </div>
+    </div>
   );
 }
