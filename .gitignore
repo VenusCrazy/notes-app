@@ -1,8 +1,22 @@
+# Node
 node_modules/
 dist/
-.turbo/
 .vite/
-*.log
-.DS_Store
+.turbo/
+
+# Env
 .env
 .env.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# 🔥 Tauri / Rust (IMPORTANT)
+target/
+**/target/
+
+# Tauri build outputs
+src-tauri/target/
