@@ -51,7 +51,6 @@ export function SidebarCalendar({ collapsed }: SidebarCalendarProps) {
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [animating, setAnimating] = useState(false);
 
   const today = useMemo(() => new Date(), []);
 
@@ -91,15 +90,11 @@ export function SidebarCalendar({ collapsed }: SidebarCalendarProps) {
   }, [currentDate, today, journalTitles]);
 
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
-    setAnimating(true);
-    setTimeout(() => {
-      setCurrentDate((prev) => {
-        const newDate = new Date(prev);
-        newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
-        return newDate;
-      });
-      setAnimating(false);
-    }, 150);
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+      return newDate;
+    });
   }, []);
 
   const handleDateClick = useCallback(async (day: CalendarDay) => {
@@ -156,7 +151,7 @@ export function SidebarCalendar({ collapsed }: SidebarCalendarProps) {
         ))}
       </div>
 
-      <div className={`calendar-grid ${animating ? 'animating' : ''}`}>
+      <div className="calendar-grid">
         {calendarDays.map((day, index) => {
           const isSelected =
             selectedDate &&

@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Icons } from './Icons';
+import { useSlashMenu } from './useSlashMenu';
+import { SlashMenu } from './SlashMenu';
 
 type EditorMode = 'edit' | 'preview' | 'split';
 
@@ -118,6 +120,28 @@ export function NoteEditor({
     }
   };
 
+  const handleInsertText = useCallback((newContent: string, cursorPos: number) => {
+    onContentChange(newContent);
+    setTimeout(() => {
+      if (contentRef.current) {
+        contentRef.current.selectionStart = cursorPos;
+        contentRef.current.selectionEnd = cursorPos;
+        contentRef.current.focus();
+      }
+    }, 0);
+  }, [onContentChange]);
+
+  const {
+    isOpen: slashMenuOpen,
+    query: slashQuery,
+    position: slashPosition,
+    selectedIndex: slashSelectedIndex,
+    filteredCommands,
+    handleKeyDown: handleSlashKeyDown,
+    handleInput: handleSlashInput,
+    closeMenu: closeSlashMenu,
+  } = useSlashMenu(contentRef, handleInsertText);
+
   return (
     <div className="editor-container">
       <div className="editor-wrapper">
@@ -150,14 +174,44 @@ export function NoteEditor({
           />
 
           {mode === 'edit' && (
-            <textarea
-              ref={contentRef}
-              className="editor-content"
-              value={content}
-              onChange={(e) => onContentChange(e.target.value)}
-              placeholder="Start writing... (drag & drop images here)"
-              autoFocus
-            />
+            <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <textarea
+                ref={contentRef}
+                className="editor-content"
+                value={content}
+                onChange={(e) => {
+                  onContentChange(e.target.value);
+                  handleSlashInput();
+                }}
+                onKeyDown={(e) => {
+                  handleSlashKeyDown(e);
+                }}
+                placeholder="Start writing... (drag & drop images here, type / for commands)"
+                autoFocus
+              />
+              {slashMenuOpen && slashPosition && (
+                <SlashMenu
+                  position={slashPosition}
+                  query={slashQuery}
+                  selectedIndex={slashSelectedIndex}
+                  commands={filteredCommands}
+                  onSelect={(cmd) => {
+                    const textarea = contentRef.current;
+                    if (textarea) {
+                      const { selectionStart, value } = textarea;
+                      const textBeforeCursor = value.slice(0, selectionStart);
+                      const lastNewline = textBeforeCursor.lastIndexOf('\n');
+                      const slashPos = textBeforeCursor.lastIndexOf('/');
+                      const beforeSlash = value.slice(0, lastNewline + 1 + slashPos);
+                      const afterCursor = value.slice(selectionStart);
+                      const newValue = beforeSlash + cmd.insert + afterCursor;
+                      handleInsertText(newValue, beforeSlash.length + cmd.insert.length);
+                      closeSlashMenu();
+                    }
+                  }}
+                />
+              )}
+            </div>
           )}
 
           {mode === 'preview' && (
@@ -168,14 +222,42 @@ export function NoteEditor({
 
           {mode === 'split' && (
             <div className="split-view">
-              <div className="split-editor">
+              <div className="split-editor" style={{ position: 'relative' }}>
                 <textarea
                   ref={contentRef}
                   className="editor-content"
                   value={content}
-                  onChange={(e) => onContentChange(e.target.value)}
-                  placeholder="Start writing... (drag & drop images here)"
+                  onChange={(e) => {
+                    onContentChange(e.target.value);
+                    handleSlashInput();
+                  }}
+                  onKeyDown={(e) => {
+                    handleSlashKeyDown(e);
+                  }}
+                  placeholder="Start writing... (drag & drop images here, type / for commands)"
                 />
+                {slashMenuOpen && slashPosition && (
+                  <SlashMenu
+                    position={slashPosition}
+                    query={slashQuery}
+                    selectedIndex={slashSelectedIndex}
+                    commands={filteredCommands}
+                    onSelect={(cmd) => {
+                      const textarea = contentRef.current;
+                      if (textarea) {
+                        const { selectionStart, value } = textarea;
+                        const textBeforeCursor = value.slice(0, selectionStart);
+                        const lastNewline = textBeforeCursor.lastIndexOf('\n');
+                        const slashPos = textBeforeCursor.lastIndexOf('/');
+                        const beforeSlash = value.slice(0, lastNewline + 1 + slashPos);
+                        const afterCursor = value.slice(selectionStart);
+                        const newValue = beforeSlash + cmd.insert + afterCursor;
+                        handleInsertText(newValue, beforeSlash.length + cmd.insert.length);
+                        closeSlashMenu();
+                      }
+                    }}
+                  />
+                )}
               </div>
               <div className="split-divider" />
               <div className="split-preview">

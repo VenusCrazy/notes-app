@@ -13,6 +13,8 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .btn:disabled {
