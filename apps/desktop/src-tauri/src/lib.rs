@@ -298,6 +298,62 @@ fn create_vault(app_handle: tauri::AppHandle, name: String) -> Result<Vault, Str
 }
 
 #[tauri::command]
+fn create_vault_at(
+    app_handle: tauri::AppHandle,
+    name: String,
+    path: String,
+) -> Result<Vault, String> {
+    let vault_path = PathBuf::from(&path).join(&name);
+
+    if vault_path.exists() {
+        return Err("A folder with this name already exists at the selected location".to_string());
+    }
+
+    fs::create_dir_all(&vault_path).map_err(|e| format!("Failed to create vault: {}", e))?;
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let vault = Vault {
+        path: vault_path.to_string_lossy().to_string(),
+        name: name.clone(),
+        last_opened: Some(now.clone()),
+    };
+
+    let mut config = ensure_vault_config(&app_handle)?;
+    config.vaults.push(vault.clone());
+    config.current_vault_path = Some(vault.path.clone());
+    save_vault_config(&app_handle, &config)?;
+
+    log::info!("Created vault at custom location: {}", name);
+    Ok(vault)
+}
+
+#[tauri::command]
+fn open_folder(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn delete_vault(app_handle: tauri::AppHandle, path: String) -> Result<(), String> {
     let vault_path = Path::new(&path);
 
@@ -803,6 +859,8 @@ pub fn run() {
             get_vault_path,
             list_vaults,
             create_vault,
+            create_vault_at,
+            open_folder,
             delete_vault,
             remove_vault,
             set_current_vault,

@@ -216,7 +216,39 @@ export function NoteEditor({
 
           {mode === 'preview' && (
             <div className="markdown-preview">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    const inline = !match && !className;
+                    return !inline && match ? (
+                      <SyntaxHighlighter
+                        style={oneDark}
+                        language={match[1]}
+                        PreTag="div"
+                      >
+                        {String(children).replace(/\n$/, '')}
+                      </SyntaxHighlighter>
+                    ) : (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                  h1({ children }) {
+                    return <h1 style={{ fontSize: '2em', fontWeight: 700, marginBottom: '0.5em', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.3em' }}>{children}</h1>;
+                  },
+                  h2({ children }) {
+                    return <h2 style={{ fontSize: '1.5em', fontWeight: 600, marginBottom: '0.5em', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.3em' }}>{children}</h2>;
+                  },
+                  h3({ children }) {
+                    return <h3 style={{ fontSize: '1.25em', fontWeight: 600, marginBottom: '0.5em' }}>{children}</h3>;
+                  },
+                }}
+              >
+                {content}
+              </ReactMarkdown>
             </div>
           )}
 
@@ -280,6 +312,38 @@ export function NoteEditor({
                           <code className={className} {...props}>
                             {children}
                           </code>
+                        );
+                      },
+                      h1({ children }) {
+                        return <h1 style={{ fontSize: '2em', fontWeight: 700, marginBottom: '0.5em', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.3em' }}>{children}</h1>;
+                      },
+                      h2({ children }) {
+                        return <h2 style={{ fontSize: '1.5em', fontWeight: 600, marginBottom: '0.5em', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.3em' }}>{children}</h2>;
+                      },
+                      h3({ children }) {
+                        return <h3 style={{ fontSize: '1.25em', fontWeight: 600, marginBottom: '0.5em' }}>{children}</h3>;
+                      },
+                      ul({ children }) {
+                        return <ul style={{ paddingLeft: '1.5em', marginBottom: '0.5em' }}>{children}</ul>;
+                      },
+                      ol({ children }) {
+                        return <ol style={{ paddingLeft: '1.5em', marginBottom: '0.5em' }}>{children}</ol>;
+                      },
+                      li({ children, ...props }) {
+                        const hasCheckbox = typeof children === 'object' && children !== null && 
+                          Object.values(children).some((child: any) => 
+                            child?.props?.type === 'checkbox'
+                          );
+                        return (
+                          <li 
+                            style={{ 
+                              marginBottom: '0.25em',
+                              listStyleType: hasCheckbox ? 'none' : 'inherit',
+                            }} 
+                            {...props}
+                          >
+                            {children}
+                          </li>
                         );
                       },
                     }}

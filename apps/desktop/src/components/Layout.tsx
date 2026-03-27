@@ -7,6 +7,7 @@ import { CommandPalette, Icons } from '@notes-app/ui';
 import { SidebarCalendar } from './SidebarCalendar';
 import { TopBar } from './TopBar';
 import { StickyNotesManager } from './StickyNotesManager';
+import { open } from '@tauri-apps/plugin-dialog';
 
 interface FolderState {
   [key: string]: boolean;
@@ -26,6 +27,8 @@ export function Layout() {
   const selectVault = useNotesStore((state) => state.selectVault);
   const vaults = useNotesStore((state) => state.vaults);
   const createVault = useNotesStore((state) => state.createVault);
+  const createVaultAt = useNotesStore((state) => state.createVaultAt);
+  const openVaultFolder = useNotesStore((state) => state.openVaultFolder);
   const deleteVault = useNotesStore((state) => state.deleteVault);
   const switchVault = useNotesStore((state) => state.switchVault);
   const { resolvedTheme, toggleTheme } = useTheme();
@@ -249,6 +252,8 @@ export function Layout() {
           vaults={vaults}
           currentVaultPath={vaultPath}
           onCreateVault={createVault}
+          onCreateVaultAt={createVaultAt}
+          onOpenVaultFolder={openVaultFolder}
           onDeleteVault={deleteVault}
           onSwitchVault={switchVault}
         />
@@ -318,6 +323,8 @@ interface SidebarProps {
   vaults: { path: string; name: string }[];
   currentVaultPath: string;
   onCreateVault: (name: string) => void;
+  onCreateVaultAt: (name: string, path: string) => void;
+  onOpenVaultFolder: (path: string) => void;
   onDeleteVault: (path: string) => void;
   onSwitchVault: (path: string) => void;
 }
@@ -340,6 +347,8 @@ function Sidebar({
   vaults,
   currentVaultPath,
   onCreateVault,
+  onCreateVaultAt,
+  onOpenVaultFolder,
   onDeleteVault,
   onSwitchVault,
 }: SidebarProps) {
@@ -352,6 +361,10 @@ function Sidebar({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      const vaultButton = document.querySelector('.vault-selector-btn');
+      if (vaultButton && vaultButton.contains(e.target as Node)) {
+        return;
+      }
       if (vaultDropdownRef.current && !vaultDropdownRef.current.contains(e.target as Node)) {
         setVaultDropdownOpen(false);
         setShowCreateVault(false);
@@ -359,8 +372,8 @@ function Sidebar({
     };
 
     if (vaultDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [vaultDropdownOpen]);
 
@@ -386,7 +399,10 @@ function Sidebar({
         <div className="vault-selector">
           <button 
             className="vault-selector-btn"
-            onClick={() => setVaultDropdownOpen(!vaultDropdownOpen)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setVaultDropdownOpen(!vaultDropdownOpen);
+            }}
           >
             <Icons.Folder style={{ width: '14px', height: '14px' }} />
             <span className="vault-selector-name">
@@ -408,17 +424,30 @@ function Sidebar({
                 >
                   <Icons.Folder style={{ width: '14px', height: '14px' }} />
                   <span className="vault-dropdown-name">{vault.name}</span>
-                  <button 
-                    className="vault-dropdown-delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm(`Delete vault "${vault.name}"? This will delete all notes in this vault.`)) {
-                        onDeleteVault(vault.path);
-                      }
-                    }}
-                  >
-                    <Icons.Trash style={{ width: '12px', height: '12px' }} />
-                  </button>
+                  <div style={{ display: 'flex', gap: '2px' }}>
+                    <button 
+                      className="vault-dropdown-action"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenVaultFolder(vault.path);
+                      }}
+                      title="Open in Finder"
+                    >
+                      <Icons.ExternalLink style={{ width: '12px', height: '12px' }} />
+                    </button>
+                    <button 
+                      className="vault-dropdown-delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Delete vault "${vault.name}"? This will delete all notes in this vault.`)) {
+                          onDeleteVault(vault.path);
+                        }
+                      }}
+                      title="Delete vault"
+                    >
+                      <Icons.Trash style={{ width: '12px', height: '12px' }} />
+                    </button>
+                  </div>
                 </div>
               ))}
               
@@ -427,7 +456,30 @@ function Sidebar({
               {!showCreateVault ? (
                 <div 
                   className="vault-dropdown-item" 
-                  onClick={() => setShowCreateVault(true)}
+                  onClick={async () => {
+                    setVaultDropdownOpen(false);
+                    setTimeout(async () => {
+                      try {
+                        const selected = await open({
+                          directory: true,
+                          multiple: false,
+                          title: 'Select folder for new vault',
+                        });
+                        console.log('Selected folder:', selected);
+                        if (selected && typeof selected === 'string') {
+                          const name = prompt('Enter vault name:');
+                          console.log('Vault name:', name);
+                          if (name) {
+                            const result = await onCreateVaultAt(name, selected);
+                            console.log('Vault created:', result);
+                          }
+                        }
+                      } catch (err) {
+                        console.error('Error selecting folder:', err);
+                        alert('Error selecting folder: ' + err);
+                      }
+                    }, 100);
+                  }}
                 >
                   <Icons.Plus style={{ width: '14px', height: '14px' }} />
                   <span>Create New Vault</span>

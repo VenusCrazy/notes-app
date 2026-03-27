@@ -1464,7 +1464,7 @@
   border: none;
   cursor: pointer;
   color: var(--color-text-tertiary);
-  opacity: 0;
+  opacity: 0.6;
   transition: opacity var(--transition-fast), color var(--transition-fast);
   border-radius: var(--radius-sm);
 }
@@ -1473,6 +1473,28 @@
   opacity: 1;
   color: var(--color-error);
   background: var(--color-error-subtle);
+}
+
+.vault-dropdown-action {
+  padding: var(--space-1);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  opacity: 0.6;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+  border-radius: var(--radius-sm);
+}
+
+.vault-dropdown-action:hover {
+  opacity: 1;
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.vault-dropdown-item:hover .vault-dropdown-delete,
+.vault-dropdown-item:hover .vault-dropdown-action {
+  opacity: 1;
 }
 
 .vault-dropdown-divider {

@@ -55,6 +55,8 @@ interface NotesState {
   filterNotes: (options: SearchOptions) => Note[];
   loadVaults: () => Promise<Vault[]>;
   createVault: (name: string) => Promise<Vault | null>;
+  createVaultAt: (name: string, path: string) => Promise<Vault | null>;
+  openVaultFolder: (path: string) => Promise<void>;
   deleteVault: (path: string) => Promise<void>;
   removeVault: (path: string) => Promise<void>;
   switchVault: (path: string) => Promise<void>;
@@ -360,6 +362,38 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       console.error('Failed to create vault:', error);
       set({ error: String(error) });
       return null;
+    }
+  },
+
+  createVaultAt: async (name: string, path: string) => {
+    try {
+      const vault = await invoke<{ path: string; name: string; last_opened: string | null }>('create_vault_at', { name, path });
+      const mappedVault: Vault = {
+        path: vault.path,
+        name: vault.name,
+        lastOpened: vault.last_opened,
+      };
+      set((state) => ({
+        vaults: [...state.vaults, mappedVault],
+        vaultPath: vault.path,
+        vaultInitialized: true,
+      }));
+      await get().loadNotes();
+      await get().loadDirectory(vault.path);
+      return mappedVault;
+    } catch (error) {
+      console.error('Failed to create vault at location:', error);
+      set({ error: String(error) });
+      return null;
+    }
+  },
+
+  openVaultFolder: async (path: string) => {
+    try {
+      await invoke('open_folder', { path });
+    } catch (error) {
+      console.error('Failed to open vault folder:', error);
+      set({ error: String(error) });
     }
   },
 
